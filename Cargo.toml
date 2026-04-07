@@ -1,16 +1,16 @@
 [package]
-name = "gitomo"
-version = "0.1.0"
+name = "tamadoro"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
-git2 = "0.19"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
+rand = "0.8"
 
 [profile.release]
 opt-level = 3

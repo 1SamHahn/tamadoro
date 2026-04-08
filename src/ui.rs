@@ -591,7 +591,7 @@ fn render_debug(f: &mut Frame, area: Rect, app: &App) {
     );
 
     f.render_widget(
-        Paragraph::new("9: Kill/Revive")
+        Paragraph::new("9: Kill/Rev s:+Ses n:New")
             .style(
                 Style::default().fg(if app.game.pet().is_dead {
                     colors::GREEN

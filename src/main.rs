@@ -164,6 +164,18 @@ fn main() -> io::Result<()> {
                                 Instant::now(),
                             ));
                         }
+                        KeyCode::Char('n') if app.mode == Mode::Debug => {
+                            app.game.current = Some(crate::game::Pet::new_random());
+                            app.game.save();
+                            app.message =
+                                Some(("New pet spawned!".to_string(), Instant::now()));
+                        }
+                        KeyCode::Char('s') if app.mode == Mode::Debug => {
+                            app.game.record_session();
+                            app.pomo_sessions += 1;
+                            app.message =
+                                Some(("Session completed!".to_string(), Instant::now()));
+                        }
                         KeyCode::Char('0') if app.mode == Mode::Debug => {
                             app.game = GameData::default();
                             app.game.save();

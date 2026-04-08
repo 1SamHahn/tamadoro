@@ -75,6 +75,15 @@ impl App {
             }
         }
 
+        // Hatchery state — no pet, so skip everything pet-related.
+        if self.game.current.is_none() {
+            self.pet_speech = None;
+            if self.pomo_state != PomodoroState::Paused {
+                self.pomo_state = PomodoroState::Paused;
+            }
+            return;
+        }
+
         // Handle pet speech
         if let Some((_, time)) = &self.pet_speech {
             // Clear speech after 5 seconds

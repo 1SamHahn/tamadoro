@@ -42,6 +42,27 @@ fn main() -> io::Result<()> {
         if event::poll(tick_rate)? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
+                    // Hatchery: no pet exists, force a choice.
+                    if app.game.current.is_none() {
+                        match key.code {
+                            KeyCode::Char('q') => break,
+                            KeyCode::Enter | KeyCode::Char(' ') => {
+                                app.game.current =
+                                    Some(crate::game::Pet::new_random());
+                                app.game.save();
+                                app.message = Some((
+                                    format!(
+                                        "Welcome, {}!",
+                                        app.game.pet().name
+                                    ),
+                                    Instant::now(),
+                                ));
+                            }
+                            _ => {}
+                        }
+                        app.tick();
+                        continue;
+                    }
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Right | KeyCode::Char('l') => {

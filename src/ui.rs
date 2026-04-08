@@ -149,12 +149,16 @@ pub fn ui(f: &mut Frame, app: &App) {
     let tabs = Line::from(tab_spans);
     f.render_widget(Paragraph::new(tabs).alignment(Alignment::Center), chunks[0]);
 
-    match app.mode {
-        Mode::Timer => render_timer(f, chunks[2], app),
-        Mode::Pet => render_pet(f, chunks[2], app),
-        Mode::Stats => render_stats(f, chunks[2], app),
-        Mode::HallOfFame => render_hall_of_fame(f, chunks[2], app),
-        Mode::Debug => render_debug(f, chunks[2], app),
+    if app.game.current.is_none() {
+        render_hatchery(f, chunks[2], app);
+    } else {
+        match app.mode {
+            Mode::Timer => render_timer(f, chunks[2], app),
+            Mode::Pet => render_pet(f, chunks[2], app),
+            Mode::Stats => render_stats(f, chunks[2], app),
+            Mode::HallOfFame => render_hall_of_fame(f, chunks[2], app),
+            Mode::Debug => render_debug(f, chunks[2], app),
+        }
     }
 
     // Large ASCII Clock
@@ -619,6 +623,51 @@ fn render_debug(f: &mut Frame, area: Rect, app: &App) {
             .style(Style::default().fg(colors::RED))
             .alignment(Alignment::Center),
         chunks[13],
+    );
+}
+
+fn render_hatchery(f: &mut Frame, area: Rect, _app: &App) {
+    let lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "~ The Hatchery ~",
+            Style::default().fg(colors::CYAN).bold(),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Your previous companion has moved on.",
+            Style::default().fg(colors::FG),
+        )),
+        Line::from(Span::styled(
+            "A new egg is waiting.",
+            Style::default().fg(colors::FG),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "    ___    ",
+            Style::default().fg(colors::YELLOW),
+        )),
+        Line::from(Span::styled(
+            "   /   \\   ",
+            Style::default().fg(colors::YELLOW),
+        )),
+        Line::from(Span::styled(
+            "  | ??? |  ",
+            Style::default().fg(colors::YELLOW),
+        )),
+        Line::from(Span::styled(
+            "   \\___/   ",
+            Style::default().fg(colors::YELLOW),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Press [Enter] to hatch a new pet",
+            Style::default().fg(colors::MAGENTA).bold(),
+        )),
+    ];
+    f.render_widget(
+        Paragraph::new(lines).alignment(Alignment::Center),
+        area,
     );
 }
 

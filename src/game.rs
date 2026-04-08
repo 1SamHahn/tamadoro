@@ -482,8 +482,7 @@ impl GameData {
             graduated_at: Local::now().timestamp(),
             outcome: Outcome::Graduated,
         });
-        // Phase 3: auto-spawn replacement. Phase 4 will route to Hatchery instead.
-        self.current = Some(Pet::new_random());
+        // current stays None — Hatchery takes over until user picks a new pet.
         self.save();
         true
     }

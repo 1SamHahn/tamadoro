@@ -9,6 +9,7 @@ pub enum Mode {
     Timer,
     Pet,
     Stats,
+    HallOfFame,
     Debug,
 }
 
@@ -33,6 +34,7 @@ pub struct App {
     pub test_mode: bool,                           // Whether --test flag was passed
     pub pet_speech: Option<(String, Instant)>,     // Current speech and when it started
     pub next_speech_time: Instant,                 // When the next speech should trigger
+    pub hof_selected: usize,                       // Selected index in Hall of Fame list
 }
 
 impl App {
@@ -56,6 +58,7 @@ impl App {
             test_mode,
             pet_speech: None,
             next_speech_time: now + next_speech_delay,
+            hof_selected: 0,
         }
     }
 
@@ -102,6 +105,25 @@ impl App {
                     let old_stage = crate::game::Pet::evolution_stage_for_level(old_level);
                     self.game.record_session();
 
+                    let graduated_name = if self.game.try_graduate() {
+                        self.game
+                            .hall_of_fame
+                            .last()
+                            .map(|e| e.pet.name.clone())
+                    } else {
+                        None
+                    };
+                    if let Some(name) = graduated_name {
+                        self.message = Some((
+                            format!("{} graduated! New pet awaits.", name),
+                            Instant::now(),
+                        ));
+                        self.pomo_state = PomodoroState::Break;
+                        self.pomo_total = Duration::from_secs(5 * 60);
+                        self.pomo_remaining = self.pomo_total;
+                        self.paused_from_state = None;
+                        return;
+                    }
                     let new_level = self.game.pet().level;
                     let new_stage = self.game.pet().evolution_stage();
                     if new_level > old_level {

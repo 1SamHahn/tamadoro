@@ -7,7 +7,7 @@ use ratatui::{
 use crate::app::{App, Mode, PomodoroState};
 use crate::ascii_digits;
 use crate::colors;
-use crate::game::PetMood;
+use crate::game::{Outcome, PetMood};
 
 pub fn render_large_clock(f: &mut Frame, area: Rect) {
     let now = Local::now();
@@ -71,6 +71,7 @@ pub fn ui(f: &mut Frame, app: &App) {
             Mode::Timer => colors::MAGENTA,
             Mode::Pet => colors::CYAN,
             Mode::Stats => colors::GREEN,
+            Mode::HallOfFame => colors::YELLOW,
             Mode::Debug => colors::RED,
         }))
         .style(Style::default().bg(colors::BG));
@@ -121,6 +122,15 @@ pub fn ui(f: &mut Frame, app: &App) {
                 Style::default().fg(colors::COMMENT)
             },
         ),
+        Span::raw(" "),
+        Span::styled(
+            "HOF",
+            if app.mode == Mode::HallOfFame {
+                Style::default().fg(colors::BG).bg(colors::YELLOW).bold()
+            } else {
+                Style::default().fg(colors::COMMENT)
+            },
+        ),
     ];
 
     // Only show DEBUG tab when in test mode
@@ -143,6 +153,7 @@ pub fn ui(f: &mut Frame, app: &App) {
         Mode::Timer => render_timer(f, chunks[2], app),
         Mode::Pet => render_pet(f, chunks[2], app),
         Mode::Stats => render_stats(f, chunks[2], app),
+        Mode::HallOfFame => render_hall_of_fame(f, chunks[2], app),
         Mode::Debug => render_debug(f, chunks[2], app),
     }
 
@@ -608,5 +619,139 @@ fn render_debug(f: &mut Frame, area: Rect, app: &App) {
             .style(Style::default().fg(colors::RED))
             .alignment(Alignment::Center),
         chunks[13],
+    );
+}
+
+fn render_hall_of_fame(f: &mut Frame, area: Rect, app: &App) {
+    let entries = &app.game.hall_of_fame;
+
+    if entries.is_empty() {
+        f.render_widget(
+            Paragraph::new(vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Hall of Fame",
+                    Style::default().fg(colors::YELLOW).bold(),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "No graduates yet.",
+                    Style::default().fg(colors::COMMENT),
+                )),
+                Line::from(Span::styled(
+                    "Raise a pet to Master and finish",
+                    Style::default().fg(colors::COMMENT),
+                )),
+                Line::from(Span::styled(
+                    "its victory lap to enshrine it here.",
+                    Style::default().fg(colors::COMMENT),
+                )),
+            ])
+            .alignment(Alignment::Center),
+            area,
+        );
+        return;
+    }
+
+    // Newest first; clamp selection.
+    let n = entries.len();
+    let sel = app.hof_selected.min(n - 1);
+
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(area);
+
+    // List pane
+    let mut list_lines: Vec<Line> = Vec::new();
+    list_lines.push(Line::from(Span::styled(
+        "~ Hall of Fame ~",
+        Style::default().fg(colors::YELLOW).bold(),
+    )));
+    list_lines.push(Line::from(""));
+
+    // Show up to 10 around the selection, newest at top.
+    let display: Vec<(usize, &crate::game::HallOfFameEntry)> =
+        entries.iter().rev().enumerate().collect();
+    let visible = display.iter().take(10);
+
+    for (i, entry) in visible {
+        let p = &entry.pet;
+        let marker = match entry.outcome {
+            Outcome::Graduated => "★",
+            Outcome::Memorial => "†",
+        };
+        let is_sel = *i == sel;
+        let prefix = if is_sel { "> " } else { "  " };
+        let style = if is_sel {
+            Style::default().fg(colors::BG).bg(colors::YELLOW).bold()
+        } else {
+            Style::default().fg(colors::FG)
+        };
+        list_lines.push(Line::from(vec![
+            Span::styled(prefix, Style::default().fg(colors::YELLOW)),
+            Span::styled(format!("{} ", marker), Style::default().fg(colors::YELLOW)),
+            Span::styled(format!("{} Lv.{}", p.name, p.level), style),
+        ]));
+    }
+    if n > 10 {
+        list_lines.push(Line::from(Span::styled(
+            format!("... +{} more", n - 10),
+            Style::default().fg(colors::COMMENT),
+        )));
+    }
+    list_lines.push(Line::from(""));
+    list_lines.push(Line::from(Span::styled(
+        "↑↓/jk to browse",
+        Style::default().fg(colors::COMMENT),
+    )));
+
+    f.render_widget(
+        Paragraph::new(list_lines).alignment(Alignment::Left),
+        chunks[0],
+    );
+
+    // Detail pane
+    let entry = &entries[n - 1 - sel]; // because list is reversed
+    let p = &entry.pet;
+    let mins = p.lifetime_focus_mins;
+    let hours = mins / 60;
+    let rem = mins % 60;
+    let born = chrono::DateTime::from_timestamp(p.born_at, 0)
+        .map(|d| d.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| "?".into());
+    let grad = chrono::DateTime::from_timestamp(entry.graduated_at, 0)
+        .map(|d| d.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| "?".into());
+    let days = ((entry.graduated_at - p.born_at) / 86400).max(0);
+    let outcome_label = match entry.outcome {
+        Outcome::Graduated => ("Graduated", colors::YELLOW),
+        Outcome::Memorial => ("Memorial", colors::COMMENT),
+    };
+
+    let detail = vec![
+        Line::from(Span::styled(
+            format!("{} the {}", p.name, p.pet_type.name()),
+            Style::default().fg(colors::CYAN).bold(),
+        )),
+        Line::from(Span::styled(
+            outcome_label.0,
+            Style::default().fg(outcome_label.1).bold(),
+        )),
+        Line::from(format!("Graduated: {}", grad)),
+        Line::from(format!("Born:      {}", born)),
+        Line::from(format!("Lived:     {} days", days)),
+        Line::from(""),
+        Line::from(format!("Final lvl: {}  ({})", p.level, p.stage_name())),
+        Line::from(format!("Sessions:  {}", p.lifetime_sessions)),
+        Line::from(format!("Focus:     {}h {}m", hours, rem)),
+        Line::from(format!("Fed:       {}", p.times_fed)),
+        Line::from(format!("Hungry:    {}", p.times_hungry)),
+        Line::from(format!("V.laps:    {}", p.victory_lap_sessions)),
+    ];
+
+    f.render_widget(
+        Paragraph::new(detail).alignment(Alignment::Left),
+        chunks[1],
     );
 }

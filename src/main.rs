@@ -44,11 +44,42 @@ fn main() -> io::Result<()> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') => break,
+                        KeyCode::Right | KeyCode::Char('l') => {
+                            app.mode = match app.mode {
+                                Mode::Timer => Mode::Pet,
+                                Mode::Pet => Mode::Stats,
+                                Mode::Stats => Mode::HallOfFame,
+                                Mode::HallOfFame => {
+                                    if app.test_mode {
+                                        Mode::Debug
+                                    } else {
+                                        Mode::Timer
+                                    }
+                                }
+                                Mode::Debug => Mode::Timer,
+                            };
+                        }
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            app.mode = match app.mode {
+                                Mode::Timer => {
+                                    if app.test_mode {
+                                        Mode::Debug
+                                    } else {
+                                        Mode::HallOfFame
+                                    }
+                                }
+                                Mode::Pet => Mode::Timer,
+                                Mode::Stats => Mode::Pet,
+                                Mode::HallOfFame => Mode::Stats,
+                                Mode::Debug => Mode::HallOfFame,
+                            };
+                        }
                         KeyCode::Tab => {
                             app.mode = match app.mode {
                                 Mode::Timer => Mode::Pet,
                                 Mode::Pet => Mode::Stats,
-                                Mode::Stats => {
+                                Mode::Stats => Mode::HallOfFame,
+                                Mode::HallOfFame => {
                                     if app.test_mode {
                                         Mode::Debug
                                     } else {
@@ -64,16 +95,37 @@ fn main() -> io::Result<()> {
                                     if app.test_mode {
                                         Mode::Debug
                                     } else {
-                                        Mode::Stats
+                                        Mode::HallOfFame
                                     }
                                 }
                                 Mode::Pet => Mode::Timer,
                                 Mode::Stats => Mode::Pet,
-                                Mode::Debug => Mode::Stats,
+                                Mode::HallOfFame => Mode::Stats,
+                                Mode::Debug => Mode::HallOfFame,
                             };
                         }
                         KeyCode::Char(' ') => {
                             app.toggle_pomo();
+                        }
+                        KeyCode::Up | KeyCode::Char('k')
+                            if app.mode == Mode::HallOfFame =>
+                        {
+                            let n = app.game.hall_of_fame.len();
+                            if n > 0 {
+                                app.hof_selected = if app.hof_selected == 0 {
+                                    n - 1
+                                } else {
+                                    app.hof_selected - 1
+                                };
+                            }
+                        }
+                        KeyCode::Down | KeyCode::Char('j')
+                            if app.mode == Mode::HallOfFame =>
+                        {
+                            let n = app.game.hall_of_fame.len();
+                            if n > 0 {
+                                app.hof_selected = (app.hof_selected + 1) % n;
+                            }
                         }
                         KeyCode::Char('r') if app.mode == Mode::Timer => {
                             app.reset_pomo();
@@ -173,8 +225,23 @@ fn main() -> io::Result<()> {
                         KeyCode::Char('s') if app.mode == Mode::Debug => {
                             app.game.record_session();
                             app.pomo_sessions += 1;
-                            app.message =
-                                Some(("Session completed!".to_string(), Instant::now()));
+                            if app.game.try_graduate() {
+                                let name = app
+                                    .game
+                                    .hall_of_fame
+                                    .last()
+                                    .map(|e| e.pet.name.clone())
+                                    .unwrap_or_default();
+                                app.message = Some((
+                                    format!("{} graduated!", name),
+                                    Instant::now(),
+                                ));
+                            } else {
+                                app.message = Some((
+                                    "Session completed!".to_string(),
+                                    Instant::now(),
+                                ));
+                            }
                         }
                         KeyCode::Char('0') if app.mode == Mode::Debug => {
                             app.game = GameData::default();

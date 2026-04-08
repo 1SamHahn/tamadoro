@@ -89,10 +89,19 @@ pub struct Pet {
 }
 
 impl Pet {
+    pub fn random_name() -> String {
+        const NAMES: &[&str] = &[
+            "Tomo", "Pip", "Zuki", "Mochi", "Nori", "Kiwi", "Bubu", "Yuki",
+            "Taro", "Momo", "Suki", "Rin", "Kai", "Tako", "Miso", "Pon",
+            "Luma", "Eko", "Zen", "Ari", "Biscuit", "Nimbus", "Pebble",
+        ];
+        NAMES[rand::thread_rng().gen_range(0..NAMES.len())].to_string()
+    }
+
     pub fn new_random() -> Self {
         let now = Local::now().timestamp();
         Self {
-            name: "Tomo".to_string(),
+            name: Self::random_name(),
             pet_type: PetType::random(),
             mood: PetMood::Idle,
             xp: 0,
@@ -189,11 +198,22 @@ impl Pet {
     }
 }
 
-/// Placeholder for Phase 3 — just needs to serialize so the field exists in the save schema now.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub enum Outcome {
+    Graduated,
+    Memorial,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct HallOfFameEntry {
     pub pet: Pet,
     pub graduated_at: i64,
+    #[serde(default = "default_outcome")]
+    pub outcome: Outcome,
+}
+
+fn default_outcome() -> Outcome {
+    Outcome::Graduated
 }
 
 #[derive(Serialize, Deserialize)]
@@ -430,7 +450,42 @@ impl GameData {
         pet.feed(25);
         pet.mood = PetMood::Happy;
 
+        // Victory lap: sessions completed while already at Master stage.
+        if pet.evolution_stage() >= 4 {
+            pet.victory_lap_sessions = pet.victory_lap_sessions.saturating_add(1);
+        }
+
         self.save();
+    }
+
+    pub const VICTORY_LAP_GOAL: u32 = 10;
+
+    /// Graduate the current pet if it has earned its cap and gown.
+    /// Returns true if graduation happened (caller should show a message
+    /// and, for now, auto-spawn a replacement pet).
+    pub fn try_graduate(&mut self) -> bool {
+        let ready = self
+            .current
+            .as_ref()
+            .map(|p| {
+                !p.is_dead
+                    && p.evolution_stage() >= 4
+                    && p.victory_lap_sessions >= Self::VICTORY_LAP_GOAL
+            })
+            .unwrap_or(false);
+        if !ready {
+            return false;
+        }
+        let pet = self.current.take().unwrap();
+        self.hall_of_fame.push(HallOfFameEntry {
+            pet,
+            graduated_at: Local::now().timestamp(),
+            outcome: Outcome::Graduated,
+        });
+        // Phase 3: auto-spawn replacement. Phase 4 will route to Hatchery instead.
+        self.current = Some(Pet::new_random());
+        self.save();
+        true
     }
 
     fn is_daytime() -> bool {

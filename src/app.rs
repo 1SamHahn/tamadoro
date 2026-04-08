@@ -98,23 +98,20 @@ impl App {
             } else {
                 if self.pomo_state == PomodoroState::Work {
                     self.pomo_sessions += 1;
-                    let old_level = self.game.level;
+                    let old_level = self.game.pet().level;
+                    let old_stage = crate::game::Pet::evolution_stage_for_level(old_level);
                     self.game.record_session();
 
-                    if self.game.level > old_level {
+                    let new_level = self.game.pet().level;
+                    let new_stage = self.game.pet().evolution_stage();
+                    if new_level > old_level {
                         self.message = Some((
-                            format!("LEVEL UP! Lv.{}", self.game.level),
+                            format!("LEVEL UP! Lv.{}", new_level),
                             Instant::now(),
                         ));
-                        if self.game.evolution_stage()
-                            > (GameData {
-                                level: old_level,
-                                ..Default::default()
-                            })
-                            .evolution_stage()
-                        {
+                        if new_stage > old_stage {
                             self.message = Some((
-                                format!("{} evolved!", self.game.pet_name),
+                                format!("{} evolved!", self.game.pet().name),
                                 Instant::now(),
                             ));
                         }
@@ -135,13 +132,13 @@ impl App {
                     self.pomo_total = Duration::from_secs(5 * 60);
                     self.pomo_remaining = self.pomo_total;
                     self.paused_from_state = None; // Clear saved state on natural transition
-                    self.game.mood = PetMood::Resting;
+                    self.game.pet_mut().mood = PetMood::Resting;
                 } else {
                     self.pomo_state = PomodoroState::Paused;
                     self.pomo_total = Duration::from_secs(25 * 60);
                     self.pomo_remaining = self.pomo_total;
                     self.paused_from_state = None; // Clear saved state on natural transition
-                    self.game.mood = PetMood::Idle;
+                    self.game.pet_mut().mood = PetMood::Idle;
                     self.message = Some(("Break over! Ready?".to_string(), Instant::now()));
                 }
             }
@@ -158,7 +155,7 @@ impl App {
                 self.last_tick = Instant::now();
 
                 // Set mood based on what state we're resuming to
-                self.game.mood = match resume_state {
+                self.game.pet_mut().mood = match resume_state {
                     PomodoroState::Work => PetMood::Working,
                     PomodoroState::Break => PetMood::Resting,
                     PomodoroState::Paused => PetMood::Idle,
@@ -169,7 +166,7 @@ impl App {
                 // Save the current state before pausing
                 self.paused_from_state = Some(self.pomo_state);
                 self.pomo_state = PomodoroState::Paused;
-                self.game.mood = PetMood::Idle;
+                self.game.pet_mut().mood = PetMood::Idle;
                 self.game.save();
             }
         }
@@ -180,7 +177,7 @@ impl App {
         self.pomo_total = Duration::from_secs(25 * 60);
         self.pomo_remaining = self.pomo_total;
         self.paused_from_state = None; // Clear saved state on reset
-        self.game.mood = PetMood::Idle;
+        self.game.pet_mut().mood = PetMood::Idle;
         self.game.save();
     }
 
@@ -188,9 +185,11 @@ impl App {
         use PetMood::*;
         use PetType::*;
 
+        let pet = self.game.pet();
+
         // Special cases first
-        if self.game.is_dead {
-            return match self.game.pet_type {
+        if pet.is_dead {
+            return match pet.pet_type {
                 Blob => "...",
                 Cat => "*silence*",
                 Robot => "ERROR 404",
@@ -198,8 +197,8 @@ impl App {
             };
         }
 
-        if self.game.food < 20 {
-            return match self.game.pet_type {
+        if pet.food < 20 {
+            return match pet.pet_type {
                 Blob => "I'm hungry...",
                 Cat => "Meow! Feed me!",
                 Robot => "Low energy!",
@@ -207,8 +206,8 @@ impl App {
             };
         }
 
-        match self.game.mood {
-            Working => match self.game.pet_type {
+        match pet.mood {
+            Working => match pet.pet_type {
                 Blob => *["You got this!", "Keep going!", "Focus!", "Stay strong!"]
                     .choose(&mut rand::thread_rng())
                     .unwrap(),
@@ -237,7 +236,7 @@ impl App {
                 .choose(&mut rand::thread_rng())
                 .unwrap(),
             },
-            Happy => match self.game.pet_type {
+            Happy => match pet.pet_type {
                 Blob => *["Yay! We did it!", "So happy!", "Woohoo!", "Great work!"]
                     .choose(&mut rand::thread_rng())
                     .unwrap(),
@@ -256,7 +255,7 @@ impl App {
                     .choose(&mut rand::thread_rng())
                     .unwrap(),
             },
-            Resting => match self.game.pet_type {
+            Resting => match pet.pet_type {
                 Blob => *["zzz...", "Nice break...", "Relaxing~", "So comfy..."]
                     .choose(&mut rand::thread_rng())
                     .unwrap(),
@@ -280,7 +279,7 @@ impl App {
                 .choose(&mut rand::thread_rng())
                 .unwrap(),
             },
-            Idle => match self.game.pet_type {
+            Idle => match pet.pet_type {
                 Blob => *["Hello!", "Ready when you are!", "Let's work!", "How are you?"]
                     .choose(&mut rand::thread_rng())
                     .unwrap(),

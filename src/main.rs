@@ -76,37 +76,38 @@ fn main() -> io::Result<()> {
                         }
                         // Debug controls
                         KeyCode::Char('1') if app.mode == Mode::Debug => {
-                            app.game.add_xp(50);
+                            app.game.pet_mut().add_xp(50);
                             app.game.save();
                             app.message = Some(("+50 XP".to_string(), Instant::now()));
                         }
                         KeyCode::Char('2') if app.mode == Mode::Debug => {
-                            app.game.add_xp(500);
+                            app.game.pet_mut().add_xp(500);
                             app.game.save();
                             app.message = Some(("+500 XP".to_string(), Instant::now()));
                         }
                         KeyCode::Char('3') if app.mode == Mode::Debug => {
-                            app.game.xp = 0;
-                            app.game.level += 1;
+                            let pet = app.game.pet_mut();
+                            pet.xp = 0;
+                            pet.level += 1;
+                            let level = pet.level;
                             app.game.save();
-                            app.message =
-                                Some((format!("Level -> {}", app.game.level), Instant::now()));
+                            app.message = Some((format!("Level -> {}", level), Instant::now()));
                         }
                         KeyCode::Char('4') if app.mode == Mode::Debug => {
                             // Jump to next evolution stage
-                            let next_level = match app.game.evolution_stage() {
+                            let next_level = match app.game.pet().evolution_stage() {
                                 1 => 5,
                                 2 => 15,
                                 3 => 30,
-                                _ => app.game.level + 10,
+                                _ => app.game.pet().level + 10,
                             };
-                            app.game.level = next_level;
-                            app.game.xp = 0;
+                            let pet = app.game.pet_mut();
+                            pet.level = next_level;
+                            pet.xp = 0;
+                            let stage = pet.stage_name();
                             app.game.save();
-                            app.message = Some((
-                                format!("Evolved to {}!", app.game.stage_name()),
-                                Instant::now(),
-                            ));
+                            app.message =
+                                Some((format!("Evolved to {}!", stage), Instant::now()));
                         }
                         KeyCode::Char('5') if app.mode == Mode::Debug => {
                             app.game.streak_days = (app.game.streak_days + 1) % 15;
@@ -117,39 +118,41 @@ fn main() -> io::Result<()> {
                             ));
                         }
                         KeyCode::Char('6') if app.mode == Mode::Debug => {
-                            app.game.pet_type = match app.game.pet_type {
+                            let pet = app.game.pet_mut();
+                            pet.pet_type = match pet.pet_type {
                                 PetType::Blob => PetType::Cat,
                                 PetType::Cat => PetType::Robot,
                                 PetType::Robot => PetType::Ghost,
                                 PetType::Ghost => PetType::Blob,
                             };
+                            let name = pet.pet_type.name();
                             app.game.save();
-                            app.message = Some((
-                                format!("Pet -> {}", app.game.pet_type.name()),
-                                Instant::now(),
-                            ));
+                            app.message = Some((format!("Pet -> {}", name), Instant::now()));
                         }
                         KeyCode::Char('7') if app.mode == Mode::Debug => {
-                            app.game.feed(25);
+                            app.game.pet_mut().feed(25);
+                            let food = app.game.pet().food;
                             app.game.save();
-                            app.message =
-                                Some((format!("Food -> {}", app.game.food), Instant::now()));
+                            app.message = Some((format!("Food -> {}", food), Instant::now()));
                         }
                         KeyCode::Char('8') if app.mode == Mode::Debug => {
-                            app.game.food = app.game.food.saturating_sub(25);
+                            let pet = app.game.pet_mut();
+                            pet.food = pet.food.saturating_sub(25);
+                            let food = pet.food;
                             app.game.save();
-                            app.message =
-                                Some((format!("Food -> {}", app.game.food), Instant::now()));
+                            app.message = Some((format!("Food -> {}", food), Instant::now()));
                         }
                         KeyCode::Char('9') if app.mode == Mode::Debug => {
-                            app.game.is_dead = !app.game.is_dead;
-                            if !app.game.is_dead {
-                                app.game.food = 50; // Revive with some food
-                                app.game.hunger_zero_since = None;
+                            let pet = app.game.pet_mut();
+                            pet.is_dead = !pet.is_dead;
+                            if !pet.is_dead {
+                                pet.food = 50; // Revive with some food
+                                pet.hunger_zero_since = None;
                             }
+                            let is_dead = pet.is_dead;
                             app.game.save();
                             app.message = Some((
-                                if app.game.is_dead {
+                                if is_dead {
                                     "Pet died!".to_string()
                                 } else {
                                     "Pet revived!".to_string()
